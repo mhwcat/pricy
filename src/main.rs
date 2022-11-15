@@ -74,23 +74,24 @@ async fn main() -> PricyResult<()> {
                 let price_str =
                     read_price_from_url(client, &prod.url, prod.use_selector_attr, &prod.selector)
                         .await;
-                if let Ok(price_str) = price_str {
-                    let price_str = sanitize(&price_str);
-                    if let Ok(price_num) = price_str.parse() {
-                        Ok(Product {
-                            url: prod.url,
-                            price: price_num,
-                            last_check_time: OffsetDateTime::now_utc(),
-                        })
-                    } else {
-                        Err(PricyError {
-                            msg: format!("Failed parsing price for {}", prod.url),
-                        })
+                match price_str {
+                    Ok(price_str) => {
+                        let price_str = sanitize(&price_str);
+                        if let Ok(price_num) = price_str.parse() {
+                            Ok(Product {
+                                url: prod.url,
+                                price: price_num,
+                                last_check_time: OffsetDateTime::now_utc(),
+                            })
+                        } else {
+                            Err(PricyError {
+                                msg: format!("Failed parsing price for {}", prod.url),
+                            })
+                        }
                     }
-                } else {
-                    Err(PricyError {
-                        msg: format!("Failed fetching price for {}", prod.url),
-                    })
+                    Err(err) => Err(PricyError {
+                        msg: format!("Failed fetching price for {} with error {}", prod.url, err),
+                    }),
                 }
             }
         })
@@ -127,7 +128,7 @@ async fn main() -> PricyResult<()> {
                 file_db.products.insert(prod.url.clone(), prod);
             }
             Err(err) => {
-                println!("Failed fetching price: {}", err);
+                println!("Error: {}", err);
             }
         }
     }
@@ -187,7 +188,7 @@ async fn read_price_from_url(
         msg: "Parser error".to_string(),
     })?;
     let price_selector = html_parsed.select(&selector).next().ok_or(PricyError {
-        msg: "Price element not found".to_string(),
+        msg: "Price selector not found".to_string(),
     })?;
 
     if let Some(attr_name) = attr_name {
