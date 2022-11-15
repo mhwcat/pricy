@@ -1,0 +1,21 @@
+[package]
+name = "pricy"
+version = "0.1.0"
+edition = "2021"
+authors = ["mhwcat"]
+
+[dependencies]
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+futures = "0.3"
+reqwest = "0.11"
+scraper = "0.13"
+clap = { version = "4.0", features = ["derive", "cargo"] }
+toml = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+ron = "0.8"
+time =  { version = "0.3", features = ["serde", "local-offset", "formatting"] }
+lettre = { version = "0.10", optional = true }
+
+[features]
+default = ["email"]
+email = ["dep:lettre"]
