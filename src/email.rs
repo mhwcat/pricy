@@ -1,3 +1,5 @@
+use lettre::message::{header, MultiPart, SinglePart};
+
 use crate::config::EmailConfiguration;
 use crate::error::PricyResult;
 
@@ -29,10 +31,27 @@ pub fn send_price_update_email_notification(
             .from(email_config.sender.parse()?)
             .to(recipient.parse()?)
             .subject("Price update alert")
-            .body(format!(
-                "Price updated: {:.2} -> {:.2} for {} at {}",
-                price_old, price_new, url, modified_at_str
-            ))?;
+            .multipart(
+                MultiPart::alternative()
+                    .singlepart(
+                        SinglePart::builder()
+                            .header(header::ContentType::TEXT_PLAIN)
+                            .body(format!(
+                                "Price updated: {:.2} -> {:.2} for {} at {}",
+                                price_old, price_new, url, modified_at_str
+                            )),
+                    )
+                    .singlepart(
+                        SinglePart::builder()
+                            .header(header::ContentType::TEXT_HTML)
+                            .body(format_email_html(
+                                url,
+                                price_old,
+                                price_new,
+                                modified_at_str,
+                            )),
+                    ),
+            )?;
 
         mailer.send(&email)?;
 
@@ -40,4 +59,28 @@ pub fn send_price_update_email_notification(
     }
 
     Ok(())
+}
+
+#[inline]
+fn format_email_html(url: &str, price_old: f32, price_new: f32, modified_at_str: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Price update alert</title>
+            </head>
+            <body>
+                <strong>Price update alert!</strong>
+                <div style="margin-top: 10px;">
+                    <p>{}</p>
+                    <p>{:.2} &rarr; {:.2}</p>
+                    <br>
+                    <p>Checked at {}</p>
+                </div>
+            </body>
+        </html>"#,
+        url, price_old, price_new, modified_at_str
+    )
 }
