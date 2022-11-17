@@ -1,19 +1,19 @@
 use lettre::message::{header, MultiPart, SinglePart};
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport};
 
 use crate::config::EmailConfiguration;
+use crate::error::PricyError;
 use crate::error::PricyResult;
 
 pub fn send_price_update_email_notification(
     url: &str,
+    name: &str,
     price_old: f32,
     price_new: f32,
     modified_at_str: &str,
     email_config: &Option<EmailConfiguration>,
 ) -> PricyResult<()> {
-    use crate::error::PricyError;
-    use lettre::transport::smtp::authentication::Credentials;
-    use lettre::{Message, SmtpTransport, Transport};
-
     let email_config = email_config.as_ref().ok_or_else(|| PricyError {
         msg: "Missing email configuration".to_string(),
     })?;
@@ -30,7 +30,7 @@ pub fn send_price_update_email_notification(
         let email = Message::builder()
             .from(email_config.sender.parse()?)
             .to(recipient.parse()?)
-            .subject("Price update alert")
+            .subject(format!("Price update alert ({})", name))
             .multipart(
                 MultiPart::alternative()
                     .singlepart(

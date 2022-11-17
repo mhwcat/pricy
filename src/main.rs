@@ -41,6 +41,7 @@ struct Args {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Product {
+    title: String,
     url: String,
     price: f32,
     last_check_time: OffsetDateTime,
@@ -49,6 +50,12 @@ struct Product {
 #[derive(Debug, Deserialize, Serialize)]
 struct ProductDb {
     products: HashMap<String, Product>,
+}
+
+#[derive(Debug)]
+struct SiteData {
+    title: String,
+    price: String,
 }
 
 #[tokio::main]
@@ -71,14 +78,15 @@ async fn main() -> PricyResult<()> {
             async move {
                 println!("Fetching {}", prod.url);
 
-                let price_str =
-                    read_price_from_url(client, &prod.url, prod.use_selector_attr, &prod.selector)
+                let site_data =
+                    read_data_from_url(client, &prod.url, prod.use_selector_attr, &prod.selector)
                         .await;
-                match price_str {
-                    Ok(price_str) => {
-                        let price_str = sanitize(&price_str);
+                match site_data {
+                    Ok(site_data) => {
+                        let price_str = sanitize(&site_data.price);
                         if let Ok(price_num) = price_str.parse() {
                             Ok(Product {
+                                title: site_data.title,
                                 url: prod.url,
                                 price: price_num,
                                 last_check_time: OffsetDateTime::now_utc(),
@@ -103,10 +111,10 @@ async fn main() -> PricyResult<()> {
         match result {
             Ok(prod) => {
                 if let Some(db_prod) = file_db.products.get(&prod.url) {
-                    if !prod.price.eq(&db_prod.price) {
+                    if true {
                         println!(
-                            "Updating price for product {}: {:.2} -> {:.2} (last check at {})",
-                            prod.url,
+                            "Updating price for product \"{}\": {:.2} -> {:.2} (last check at {})",
+                            prod.title,
                             db_prod.price,
                             prod.price,
                             db_prod.last_check_time.format(&date_format)?
@@ -115,6 +123,7 @@ async fn main() -> PricyResult<()> {
                         #[cfg(feature = "email")]
                         email::send_price_update_email_notification(
                             &prod.url,
+                            &prod.title,
                             db_prod.price,
                             prod.price,
                             &OffsetDateTime::now_utc().format(&date_format)?,
@@ -122,7 +131,10 @@ async fn main() -> PricyResult<()> {
                         )?;
                     }
                 } else {
-                    println!("Adding product {} with price {}", prod.url, prod.price);
+                    println!(
+                        "Adding product \"{}\" with price {}",
+                        prod.title, prod.price
+                    );
                 }
 
                 file_db.products.insert(prod.url.clone(), prod);
@@ -175,31 +187,48 @@ fn parse_toml(path: &Path) -> PricyResult<Configuration> {
     Ok(config)
 }
 
-async fn read_price_from_url(
+async fn read_data_from_url(
     client: &reqwest::Client,
     url: &str,
     attr_name: Option<String>,
     selector: &str,
-) -> PricyResult<String> {
+) -> PricyResult<SiteData> {
     let body = client.get(url).send().await?.text().await?;
 
     let html_parsed = scraper::html::Html::parse_document(&body);
-    let selector = scraper::selector::Selector::parse(selector).map_err(|_| PricyError {
+    let title_selector = scraper::selector::Selector::parse("title").map_err(|_| PricyError {
         msg: "Parser error".to_string(),
     })?;
-    let price_selector = html_parsed.select(&selector).next().ok_or(PricyError {
-        msg: "Price selector not found".to_string(),
+    let price_selector = scraper::selector::Selector::parse(selector).map_err(|_| PricyError {
+        msg: "Parser error".to_string(),
     })?;
+    let title_element = html_parsed
+        .select(&title_selector)
+        .next()
+        .ok_or(PricyError {
+            msg: "Title element not found".to_string(),
+        })?;
+    let price_element = html_parsed
+        .select(&price_selector)
+        .next()
+        .ok_or(PricyError {
+            msg: "Price element not found".to_string(),
+        })?;
 
-    if let Some(attr_name) = attr_name {
-        Ok(price_selector
+    let price = if let Some(attr_name) = attr_name {
+        price_element
             .value()
             .attr(&attr_name)
             .ok_or(PricyError {
                 msg: "Price attribute not found".to_string(),
             })?
-            .to_string())
+            .to_string()
     } else {
-        Ok(price_selector.inner_html())
-    }
+        price_element.inner_html()
+    };
+
+    Ok(SiteData {
+        title: title_element.inner_html(),
+        price,
+    })
 }
