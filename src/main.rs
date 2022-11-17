@@ -111,7 +111,7 @@ async fn main() -> PricyResult<()> {
         match result {
             Ok(prod) => {
                 if let Some(db_prod) = file_db.products.get(&prod.url) {
-                    if true {
+                    if !db_prod.price.eq(&prod.price) {
                         println!(
                             "Updating price for product \"{}\": {:.2} -> {:.2} (last check at {})",
                             prod.title,
