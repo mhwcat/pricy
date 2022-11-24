@@ -13,3 +13,4 @@ use_selector_attr = "content"
 [[products]]
 url = "https://some-store.dom/some-prod2.html"
 selector = "span.a-price>span.a-price-content"
+notify_only_drop = true

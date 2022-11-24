@@ -27,6 +27,11 @@ By default inner text value from given selector is used, but you can optionally 
 selector = "span#price-field"
 use_selector_attr = "content"
 ```
+You can also specify
+```toml
+notify_only_drop = true
+```
+for each product in order to be notified only when price drops.  
 Example configuration file is [here](example.toml).
 ## Running
 You have to provide configuration file path and database file path when running pricy.

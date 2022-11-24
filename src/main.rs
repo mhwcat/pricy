@@ -68,26 +68,31 @@ async fn main() -> PricyResult<()> {
     let mut file_db = read_db(&args.database)?;
 
     let configuration = parse_toml(&args.config)?;
+    let products = &configuration.products;
 
     let client = reqwest::Client::builder().user_agent(USERAGENT).build()?;
 
-    let results: Vec<PricyResult<Product>> = futures::stream::iter(configuration.products)
+    let results: Vec<PricyResult<Product>> = futures::stream::iter(products)
         .map(|prod| {
             let client = &client;
 
             async move {
                 println!("Fetching {}", prod.url);
 
-                let site_data =
-                    read_data_from_url(client, &prod.url, prod.use_selector_attr, &prod.selector)
-                        .await;
+                let site_data = read_data_from_url(
+                    client,
+                    &prod.url,
+                    prod.use_selector_attr.clone(),
+                    &prod.selector,
+                )
+                .await;
                 match site_data {
                     Ok(site_data) => {
                         let price_str = sanitize(&site_data.price);
                         if let Ok(price_num) = price_str.parse() {
                             Ok(Product {
                                 title: site_data.title,
-                                url: prod.url,
+                                url: prod.url.clone(),
                                 price: price_num,
                                 last_check_time: OffsetDateTime::now_utc(),
                             })
@@ -121,14 +126,21 @@ async fn main() -> PricyResult<()> {
                         );
 
                         #[cfg(feature = "email")]
-                        email::send_price_update_email_notification(
-                            &prod.url,
-                            &prod.title,
-                            db_prod.price,
-                            prod.price,
-                            &OffsetDateTime::now_utc().format(&date_format)?,
-                            &configuration.email,
-                        )?;
+                        {
+                            let notify_only_drop =
+                                configuration.is_product_notify_only_drop(&prod.url);
+
+                            if !notify_only_drop || prod.price < db_prod.price {
+                                email::send_price_update_email_notification(
+                                    &prod.url,
+                                    &prod.title,
+                                    db_prod.price,
+                                    prod.price,
+                                    &OffsetDateTime::now_utc().format(&date_format)?,
+                                    &configuration.email,
+                                )?;
+                            }
+                        }
                     }
                 } else {
                     println!(
