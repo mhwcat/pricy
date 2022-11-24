@@ -7,14 +7,14 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    pub fn is_product_notify_only_drop(&self, url: &str) -> bool {
+    pub fn get_product_configuration(&self, url: &str) -> Option<&ProductConfiguration> {
         for p in &self.products {
             if p.url.eq_ignore_ascii_case(url) {
-                return p.notify_only_drop.unwrap_or(false);
+                return Some(p);
             }
         }
 
-        false
+        None
     }
 }
 
@@ -24,6 +24,7 @@ pub struct ProductConfiguration {
     pub selector: String,
     pub use_selector_attr: Option<String>,
     pub notify_only_drop: Option<bool>,
+    pub notification_email_recipients: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Debug)]

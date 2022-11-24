@@ -127,12 +127,16 @@ async fn main() -> PricyResult<()> {
 
                         #[cfg(feature = "email")]
                         {
-                            let notify_only_drop =
-                                configuration.is_product_notify_only_drop(&prod.url);
+                            let prod_conf = configuration
+                                .get_product_configuration(&prod.url)
+                                .ok_or(PricyError {
+                                    msg: format!("Missing product configuration for {}", prod.url),
+                                })?;
+                            let notify_only_drop = prod_conf.notify_only_drop.unwrap_or(false);
 
                             if !notify_only_drop || prod.price < db_prod.price {
                                 email::send_price_update_email_notification(
-                                    &prod.url,
+                                    prod_conf,
                                     &prod.title,
                                     db_prod.price,
                                     prod.price,

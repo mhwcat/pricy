@@ -2,12 +2,12 @@ use lettre::message::{header, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 
-use crate::config::EmailConfiguration;
+use crate::config::{EmailConfiguration, ProductConfiguration};
 use crate::error::PricyError;
 use crate::error::PricyResult;
 
 pub fn send_price_update_email_notification(
-    url: &str,
+    prod_conf: &ProductConfiguration,
     name: &str,
     price_old: f32,
     price_new: f32,
@@ -26,7 +26,13 @@ pub fn send_price_update_email_notification(
         .credentials(creds)
         .build();
 
-    for recipient in &email_config.recipients {
+    let recipients = if let Some(prod_recipients) = &prod_conf.notification_email_recipients {
+        prod_recipients
+    } else {
+        &email_config.recipients
+    };
+
+    for recipient in recipients {
         let email = Message::builder()
             .from(email_config.sender.parse()?)
             .to(recipient.parse()?)
@@ -38,14 +44,14 @@ pub fn send_price_update_email_notification(
                             .header(header::ContentType::TEXT_PLAIN)
                             .body(format!(
                                 "Price updated: {:.2} -> {:.2} for {} at {}",
-                                price_old, price_new, url, modified_at_str
+                                price_old, price_new, prod_conf.url, modified_at_str
                             )),
                     )
                     .singlepart(
                         SinglePart::builder()
                             .header(header::ContentType::TEXT_HTML)
                             .body(format_email_html(
-                                url,
+                                &prod_conf.url,
                                 price_old,
                                 price_new,
                                 modified_at_str,

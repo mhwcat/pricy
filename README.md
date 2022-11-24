@@ -32,6 +32,11 @@ You can also specify
 notify_only_drop = true
 ```
 for each product in order to be notified only when price drops.  
+If you want to override default email notification recipients for a product, set 
+```toml
+notification_email_recipients = ["SomeRecipient3 <some@recipient3.dom>"]
+```
+
 Example configuration file is [here](example.toml).
 ## Running
 You have to provide configuration file path and database file path when running pricy.
