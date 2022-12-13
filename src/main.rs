@@ -125,25 +125,25 @@ async fn main() -> PricyResult<()> {
                             db_prod.last_check_time.format(&date_format)?
                         );
 
-                        #[cfg(feature = "email")]
-                        {
-                            let prod_conf = configuration
-                                .get_product_configuration(&prod.url)
-                                .ok_or(PricyError {
-                                    msg: format!("Missing product configuration for {}", prod.url),
-                                })?;
-                            let notify_only_drop = prod_conf.notify_only_drop.unwrap_or(false);
+                        let prod_conf = configuration
+                            .get_product_configuration(&prod.url)
+                            .ok_or(PricyError {
+                                msg: format!("Missing product configuration for {}", prod.url),
+                            })?;
+                        let notify_only_drop = prod_conf.notify_only_drop.unwrap_or(false);
 
-                            if !notify_only_drop || prod.price < db_prod.price {
-                                email::send_price_update_email_notification(
-                                    prod_conf,
-                                    &prod.title,
-                                    db_prod.price,
-                                    prod.price,
-                                    &OffsetDateTime::now_utc().format(&date_format)?,
-                                    &configuration.email,
-                                )?;
-                            }
+                        if !notify_only_drop || prod.price < db_prod.price {
+                            #[cfg(feature = "email")]
+                            email::send_price_update_email_notification(
+                                prod_conf,
+                                &prod.title,
+                                db_prod.price,
+                                prod.price,
+                                &OffsetDateTime::now_utc().format(&date_format)?,
+                                &configuration.email,
+                            )?;
+
+                            file_db.products.insert(prod.url.clone(), prod);
                         }
                     }
                 } else {
@@ -151,9 +151,9 @@ async fn main() -> PricyResult<()> {
                         "Adding product \"{}\" with price {}",
                         prod.title, prod.price
                     );
-                }
 
-                file_db.products.insert(prod.url.clone(), prod);
+                    file_db.products.insert(prod.url.clone(), prod);
+                }
             }
             Err(err) => {
                 println!("Error: {}", err);

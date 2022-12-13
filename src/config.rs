@@ -8,13 +8,7 @@ pub struct Configuration {
 
 impl Configuration {
     pub fn get_product_configuration(&self, url: &str) -> Option<&ProductConfiguration> {
-        for p in &self.products {
-            if p.url.eq_ignore_ascii_case(url) {
-                return Some(p);
-            }
-        }
-
-        None
+        self.products.iter().find(|&p| p.url.eq_ignore_ascii_case(url))
     }
 }
 
